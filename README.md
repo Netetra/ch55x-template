@@ -19,5 +19,5 @@ bash ./scripts/build.sh
 
 # Flash
 ```sh
-wchisp flash ./out/main.hex
+bash ./scripts/flash.sh
 ```
