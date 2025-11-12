@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "compare": "c",
+        "cstdint": "c",
+        "config.h": "c"
+    }
+}

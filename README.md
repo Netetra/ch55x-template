@@ -1,6 +1,6 @@
-# CH559 Template
+# CH55x Template
 
-# Dependencies install
+## Dependencies install
 ```sh
 yay -S z88dk
 ```
@@ -12,12 +12,12 @@ cargo install wchisp
 ```
 
 
-# Build
+## Build
 ```sh
 bash ./scripts/build.sh
 ```
 
-# Flash
+## Flash
 ```sh
 bash ./scripts/flash.sh
 ```

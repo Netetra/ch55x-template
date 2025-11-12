@@ -1,6 +1,5 @@
 #include <ch559.h>
 #include <stdio.h>
-#include <string.h>
 
 int putchar(int c) {
   while (TI == 0) {}
@@ -9,20 +8,32 @@ int putchar(int c) {
   return c;
 }
 
-int getchar(void) {
+int getchar() {
   while (RI == 0) {}
   RI = 0;
   return SBUF;
 }
 
-void main(void) {
+void main() {
   clock_init();
   uart0_init(115200, true);
 
-  printf("initialized.\n");
+  char buffer[256];
+  uint16_t ptr = 0;
 
   while (true) {
     if(!(P4_IN & (1 << 6))) { run_bootloader(); }
-    delay_ms(1000);
+
+    while (true) {
+      char c = getchar();
+      buffer[ptr] = c;
+      ptr++;
+      if (c == '\n') {
+        buffer[ptr] = '\0';
+        ptr = 0;
+        break;
+      }
+    }
+    printf("Receive: %s", buffer);
   }
 }

@@ -1,17 +1,16 @@
-#include <stdint.h>
-#include "includes/ch559.h"
+#include <ch559.h>
 
 void main() {
-  PORT_CFG_REG = 0b00101101;
-  P1_DIR_REG = 0b00000100;
-  P1_PU_REG = 0b11111011;
-  P1_REG = 0x00;
+  clock_init();
 
-  while (1) {
-    P1_REG = (!(P1_REG & 0b00000100)) << 2;
+  PORT_CFG = 0b01001011;
+  P2_DIR = 0b00000001;
+  P2 = 0x00;
 
-    for (uint32_t i = 0; i < (100000UL); i++) {
-      __asm__("nop");
-    }
+  while (true) {
+    if(!(P4_IN & (1 << 6))) { run_bootloader(); }
+
+    P2 = (!(P2 & 0b00000001));
+    delay_ms(500);
   }
 }
