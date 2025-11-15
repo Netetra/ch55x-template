@@ -2,6 +2,26 @@
 
 #include <stdint.h>
 
+// bDescriptorType
+#define DEVICE_DESCRIPTOR        0x01
+#define CONFIGURATION_DESCRIPTOR 0x02
+#define STRING_DESCRIPTOR        0x03
+#define INTERFACE_DESCRIPTOR     0x04
+#define ENDPOINT_DESCRIPTOR      0x05
+
+// SetupRequest.bRequest
+#define GET_STATUS        0x00
+#define CLEAR_FEATURE     0x01
+#define SET_FEATURE       0x03
+#define SET_ADDRESS       0x05
+#define GET_DESCRIPTOR    0x06
+#define SET_DESCRIPTOR    0x07
+#define GET_CONFIGURATION 0x08
+#define SET_CONFIGURATION 0x09
+#define GET_INTERFACE     0x10
+#define SET_INTERFACE     0x11
+#define SYNC_FRAME        0x12
+
 struct SetupRequest {
   uint8_t bRequestType;
   uint8_t bRequest;
@@ -48,4 +68,23 @@ struct InterfaceDesc {
   uint8_t bInterfaceSubClass;
   uint8_t bInterfaceProtocol;
   uint8_t iInterface;
+};
+
+struct HIDDesc {
+  uint8_t bLength;
+  uint8_t bDescriptorType;
+  uint16_t bcdHID;
+  uint8_t bCountryCode;
+  uint8_t bNumDescriptors;
+  uint8_t bReportDescriptorType;
+  uint16_t wDescriptorLength;
+};
+
+struct EndpointDesc {
+  uint8_t bLength;
+  uint8_t bDescriptorType;
+  uint8_t bEndpointAddress;
+  uint8_t bmAttributes;
+  uint16_t wMaxPacketSize;
+  uint8_t bInterval;
 };

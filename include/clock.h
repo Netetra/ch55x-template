@@ -5,8 +5,13 @@
 #include "register.h"
 #include "system.h"
 
+#ifndef USE_EXTERNAL_OSC
 #define USE_EXTERNAL_OSC false
+#endif
+
+#ifndef SYSTEM_FREQ
 #define SYSTEM_FREQ 48000000
+#endif
 
 void delay_us(uint16_t n) {
   while (n) {
