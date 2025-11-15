@@ -1,18 +1,7 @@
+#define USE_UART0_STDIO
+
 #include <ch559.h>
 #include <stdio.h>
-
-int putchar(int c) {
-  while (TI == 0) {}
-  SBUF = c & 0xFF;
-  TI = 0;
-  return c;
-}
-
-int getchar() {
-  while (RI == 0) {}
-  RI = 0;
-  return SBUF;
-}
 
 void main() {
   clock_init();

@@ -16,6 +16,7 @@
 
 struct UsbDevice {
   uint8_t ep_flags;
+  void (*setup)(struct SetupRequest*, void**, uint8_t*);
   void (*get_descriptor)(struct SetupRequest*, void**, uint8_t*);
   uint8_t address;
   uint8_t configuration_num;
@@ -59,8 +60,34 @@ void usbd_stall(void) {
   DEBUG("stall\n");
 }
 
-void ep0_send_first(void* ptr, uint16_t len) {
+void ep_data_send(uint8_t ep_num, uint8_t* data, uint8_t len) {
+  switch (ep_num) {
+    case 0:
+      memcpy(ep0_buffer, data, len);
+      UEP0_T_LEN = len;
+      UEP0_CTRL = UEP0_CTRL & ~MASK_UEP_T_RES | UEP_T_RES_ACK;
+      break;
+    case 1:
+      memcpy(ep1_buffer, data, len);
+      UEP1_T_LEN = len;
+      UEP1_CTRL = UEP1_CTRL & ~MASK_UEP_T_RES | UEP_T_RES_ACK;
+      break;
+    case 2:
+      memcpy(ep2_buffer, data, len);
+      UEP2_T_LEN = len;
+      UEP2_CTRL = UEP2_CTRL & ~MASK_UEP_T_RES | UEP_T_RES_ACK;
+      break;
+    case 3:
+      memcpy(ep3_buffer, data, len);
+      UEP3_T_LEN = len;
+      UEP3_CTRL = UEP3_CTRL & ~MASK_UEP_T_RES | UEP_T_RES_ACK;
+      break;
+  }
+}
+
+void ep0_send_first(void* ptr, uint16_t len, uint16_t max_len) {
   uint8_t tx_len = (len <= USB_BUFFER_MAX_SIZE) ? len : USB_BUFFER_MAX_SIZE;
+  tx_len = (tx_len <= max_len) ? tx_len : max_len;
   memcpy(ep0_buffer, ptr, tx_len);
   UEP0_T_LEN = tx_len;
   UEP0_CTRL = bUEP_R_TOG | bUEP_T_TOG | UEP_R_RES_ACK | UEP_T_RES_ACK;
@@ -68,10 +95,11 @@ void ep0_send_first(void* ptr, uint16_t len) {
   __usb_device.ep0_sending_data_len = len - tx_len;
 }
 
-void ep0_send_next(void) {
+void ep0_send_next(uint16_t max_len) {
   void* ptr = __usb_device.ep0_sending_data_ptr;
   uint16_t len = __usb_device.ep0_sending_data_len;
   uint8_t tx_len = (len <= USB_BUFFER_MAX_SIZE) ? len : USB_BUFFER_MAX_SIZE;
+  tx_len = (tx_len <= max_len) ? tx_len : max_len;
   memcpy(ep0_buffer, ptr, tx_len);
   UEP0_T_LEN = tx_len;
   UEP0_CTRL ^= (bUEP_R_TOG | bUEP_T_TOG);
@@ -79,7 +107,44 @@ void ep0_send_next(void) {
   __usb_device.ep0_sending_data_len = len - tx_len;
 }
 
-void ep0_out(void) {}
+void ep_in(uint8_t ep_num) {
+  if (ep_num == 1) {
+    UEP1_T_LEN = 0;
+    UEP1_CTRL = UEP1_CTRL & ~MASK_UEP_T_RES | UEP_T_RES_NAK;
+  } else if (ep_num == 2) {
+    UEP2_T_LEN = 0;
+    UEP2_CTRL = UEP2_CTRL & ~MASK_UEP_T_RES | UEP_T_RES_NAK;
+  } else if (ep_num == 3) {
+    UEP3_T_LEN = 0;
+    UEP3_CTRL = UEP3_CTRL & ~MASK_UEP_T_RES | UEP_T_RES_NAK;
+  }
+}
+
+uint8_t is_ep_ready(uint8_t ep_num) {
+  switch (ep_num) {
+    case 0:
+      return (UEP0_CTRL & MASK_UEP_T_RES) != UEP_T_RES_ACK;
+    case 1:
+      return (UEP1_CTRL & MASK_UEP_T_RES) != UEP_T_RES_ACK;
+    case 2:
+      return (UEP2_CTRL & MASK_UEP_T_RES) != UEP_T_RES_ACK;
+    case 3:
+      return (UEP3_CTRL & MASK_UEP_T_RES) != UEP_T_RES_ACK;
+  }
+  return false;
+}
+
+void ep0_out(void) {
+  uint8_t request_type = __usb_device.last_setup_req.bRequestType;
+  if ((request_type & SETUP_REQUEST_DIR_MASK) == SETUP_REQUEST_DIR_IN) {
+    UEP0_CTRL = UEP_R_RES_ACK | UEP_T_RES_NAK;
+    return;
+  }
+  if ((request_type & SETUP_REQUEST_TYPE_MASK) == SETUP_REQUEST_TYPE_STANDARD) {
+    UEP0_CTRL ^= bUEP_R_TOG;
+    return;
+  }
+}
 
 void ep0_in(void) {
   struct SetupRequest* last_setup_req = &(__usb_device.last_setup_req);
@@ -90,7 +155,7 @@ void ep0_in(void) {
       DEBUG("set address: %d\n", USB_DEV_AD);
       break;
     case GET_DESCRIPTOR:
-      ep0_send_next();
+      ep0_send_next(last_setup_req->wLength);
       break;
   }
 }
@@ -103,48 +168,52 @@ void ep0_setup(void) {
   struct SetupRequest* last_setup_req = &(__usb_device.last_setup_req);
   memcpy(last_setup_req, ep0_buffer, rx_len);
 
-  // supported standard request only
-  if ((last_setup_req->bRequestType & 0x60) != 0x00) {
-    DEBUG("not supported standard request\n");
-    return;
-  }
-
+  if ((last_setup_req->bRequestType & SETUP_REQUEST_TYPE_MASK) == SETUP_REQUEST_TYPE_STANDARD) {
   switch (last_setup_req->bRequest) {
-    case SET_ADDRESS:
-      __usb_device.address = last_setup_req->wValue & 0xFF;
-      ep0_send_first(NULL, 0);
-      break;
-    case GET_DESCRIPTOR:
-      void* desc_ptr;
-      uint16_t desc_len;
-      __usb_device.get_descriptor(last_setup_req, &desc_ptr, &desc_len);
-      if (desc_ptr == NULL && desc_len == 0) {
-        usbd_stall();
-        DEBUG("requested unknown descriptor\n");
-        return;
-      }
-      ep0_send_first(desc_ptr, desc_len);
-      break;
-    case GET_CONFIGURATION:
-      void* num_ptr = &(__usb_device.configuration_num);
-      ep0_send_first(num_ptr, 1);
-      break;
-    case SET_CONFIGURATION:
-      __usb_device.configuration_num = last_setup_req->wValue & 0xFF;
-      ep0_send_first(NULL, 0);
-      DEBUG("set configuration %d\n", __usb_device.configuration_num);
-      break;
+      case SET_ADDRESS:
+        __usb_device.address = last_setup_req->wValue & 0xFF;
+        ep0_send_first(NULL, 0, last_setup_req->wLength);
+        break;
+      case GET_DESCRIPTOR:
+        void* desc_ptr;
+        uint16_t desc_len;
+        __usb_device.get_descriptor(last_setup_req, &desc_ptr, &desc_len);
+        if (desc_ptr == NULL && desc_len == 0) {
+          usbd_stall();
+          return;
+        }
+        uint16_t max_len = last_setup_req->wLength;
+        ep0_send_first(desc_ptr, desc_len, max_len);
+        break;
+      case GET_CONFIGURATION:
+        void* num_ptr = &(__usb_device.configuration_num);
+        ep0_send_first(num_ptr, 1, last_setup_req->wLength);
+        break;
+      case SET_CONFIGURATION:
+        __usb_device.configuration_num = last_setup_req->wValue & 0xFF;
+        ep0_send_first(NULL, 0, last_setup_req->wLength);
+        DEBUG("set configuration %d\n", __usb_device.configuration_num);
+        break;
+    }
+  } else {
+    void* data_ptr;
+    uint16_t data_len;
+    __usb_device.setup(last_setup_req, &data_ptr, &data_len);
+    ep0_send_first(data_ptr, data_len, last_setup_req->wLength);
   }
 }
 
+
 struct UsbDevice* usbd_init(
   uint8_t ep_flags,
+  void (*setup)(struct SetupRequest*, void**, uint8_t*),
   void (*get_descriptor)(struct SetupRequest*, void**, uint8_t*)
 ) {
   IE_USB = 0;
   USB_CTRL = 0;
 
   __usb_device.ep_flags = ep_flags;
+  __usb_device.setup = setup;
   __usb_device.get_descriptor = get_descriptor;
 
   uint8_t use_ep1_out = __usb_device.ep_flags & USE_EP1_OUT;
@@ -234,6 +303,7 @@ void usb_interrupt(void) __interrupt(8) __using(1) {
       case TOKEN_IN | 1:
       case TOKEN_IN | 2:
       case TOKEN_IN | 3:
+        ep_in(interrupt_status & 0x0F);
         break;
     }
     UIF_TRANSFER = 0;

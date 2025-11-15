@@ -9,6 +9,12 @@
 #define INTERFACE_DESCRIPTOR     0x04
 #define ENDPOINT_DESCRIPTOR      0x05
 
+#define HID_DESCRIPTOR           0x21
+#define HID_REPORT_DESCRIPTOR    0x22
+
+// EndpointDesc.bmAttributes
+#define INTERRUPT_TRANSFER 0x03
+
 // SetupRequest.bRequest
 #define GET_STATUS        0x00
 #define CLEAR_FEATURE     0x01
@@ -21,6 +27,18 @@
 #define GET_INTERFACE     0x10
 #define SET_INTERFACE     0x11
 #define SYNC_FRAME        0x12
+
+#define HID_GET_REPORT    0x01
+#define HID_SET_IDLE      0x0A
+
+// SetupRequest.bRequestType
+#define SETUP_REQUEST_DIR_MASK      0b10000000
+#define SETUP_REQUEST_DIR_IN        0b10000000
+#define SETUP_REQUEST_DIR_OUT       0b00000000
+#define SETUP_REQUEST_TYPE_MASK     0b01100000
+#define SETUP_REQUEST_TYPE_STANDARD 0b00000000
+#define SETUP_REQUEST_TYPE_CLASS    0b00100000
+#define SETUP_REQUEST_TYPE_VENDOR   0b01000000
 
 struct SetupRequest {
   uint8_t bRequestType;
