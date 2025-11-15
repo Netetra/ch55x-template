@@ -64,7 +64,7 @@ __code struct Descriptors descriptors = {
     0x81,                     // bEndpointAddress: EP1 IN
     INTERRUPT_TRANSFER,       // bmAttributes
     3,                        // wMaxPacketSize
-    1                        // bInterval
+    1                         // bInterval
   }
 };
 
@@ -100,7 +100,7 @@ __code uint8_t hid_report_desc[] = {
 __code uint8_t string_desc0[] = { // LANGID
   0x06, 0x03,
   0x09, 0x04,
-  0x11, 0x04
+  0x09, 0x04
 };
 
 __code uint8_t string_desc1[] = { // iManufacturer
@@ -129,7 +129,7 @@ __code uint8_t string_desc2[] = { // iProduct
 
 int8_t report[] = { 0, 0, 0 };
 
-void get_descriptor(struct SetupRequest* last_setup_req, void** ptr, uint8_t* len) {
+uint8_t get_descriptor(struct SetupRequest* last_setup_req, void** ptr, uint16_t* len) {
   uint8_t desc_type = (last_setup_req->wValue >> 8) & 0xFF;
   uint8_t index = last_setup_req->wValue & 0xFF;
   switch (desc_type) {
@@ -146,9 +146,7 @@ void get_descriptor(struct SetupRequest* last_setup_req, void** ptr, uint8_t* le
           *len = sizeof(struct Descriptors);
           break;
         default:
-          *ptr = NULL;
-          *len = 0;
-          break;
+          return 1;
       }
       break;
     case STRING_DESCRIPTOR:
@@ -167,9 +165,8 @@ void get_descriptor(struct SetupRequest* last_setup_req, void** ptr, uint8_t* le
           *len = sizeof(string_desc2);
           break;
         default:
-          *ptr = NULL;
-          *len = 0;
-          break;
+          DEBUG("unknown string descriptor index: %d\n");
+          return 1;
       }
       break;
     case HID_REPORT_DESCRIPTOR:
@@ -178,26 +175,37 @@ void get_descriptor(struct SetupRequest* last_setup_req, void** ptr, uint8_t* le
       *len = sizeof(hid_report_desc);
       break;
     default:
-      *ptr = NULL;
-      *len = 0;
-      break;
+      DEBUG("unknown descriptor 0x%02X", desc_type);
+      return 1;
   }
+  return 0;
 }
 
-void setup(struct SetupRequest* last_setup_req, void** ptr, uint8_t* len) {
+uint8_t setup(struct SetupRequest* last_setup_req, void** ptr, uint16_t* len) {
   if ((last_setup_req->bRequestType & SETUP_REQUEST_TYPE_MASK) != SETUP_REQUEST_TYPE_CLASS) {
     return;
   }
   switch (last_setup_req->bRequest) {
     case HID_GET_REPORT:
+      DEBUG("requested report\n");
       *ptr = report;
       *len = 3;
       break;
     case HID_SET_IDLE:
+      DEBUG("set idle\n");
       *ptr = NULL;
       *len = 0;
       break;
+    case HID_SET_PROTOCOL:
+      DEBUG("set protocol\n");
+      *ptr = NULL;
+      *len = 0;
+      break;
+    default:
+      DEBUG("unknown class request 0x%02X", last_setup_req->bRequest);
+      return 1;
   }
+  return 0;
 }
 
 void main(void) {
@@ -212,8 +220,8 @@ void main(void) {
   while (true) {
     if(!(P4_IN & (1 << 6))) { run_bootloader(); }
     if (is_ep_ready(1)) {
-      report[1] = (int8_t)(20. * cosf((PI / 180.) * degree));
-      report[2] = (int8_t)(20. * sinf((PI / 180.) * degree));
+      report[1] = (int8_t)(2. * cosf((PI / 180.) * degree));
+      report[2] = (int8_t)(2. * sinf((PI / 180.) * degree));
       ep_data_send(1, report, 3);
       degree += 1;
       if (degree >= 360) {

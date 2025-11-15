@@ -16,8 +16,8 @@
 
 struct UsbDevice {
   uint8_t ep_flags;
-  void (*setup)(struct SetupRequest*, void**, uint8_t*);
-  void (*get_descriptor)(struct SetupRequest*, void**, uint8_t*);
+  uint8_t (*setup)(struct SetupRequest*, void**, uint16_t*);
+  uint8_t (*get_descriptor)(struct SetupRequest*, void**, uint16_t*);
   uint8_t address;
   uint8_t configuration_num;
   struct SetupRequest last_setup_req;
@@ -66,21 +66,25 @@ void ep_data_send(uint8_t ep_num, uint8_t* data, uint8_t len) {
       memcpy(ep0_buffer, data, len);
       UEP0_T_LEN = len;
       UEP0_CTRL = UEP0_CTRL & ~MASK_UEP_T_RES | UEP_T_RES_ACK;
+      UEP0_CTRL ^= bUEP_T_TOG;
       break;
     case 1:
       memcpy(ep1_buffer, data, len);
       UEP1_T_LEN = len;
       UEP1_CTRL = UEP1_CTRL & ~MASK_UEP_T_RES | UEP_T_RES_ACK;
+      UEP1_CTRL ^= bUEP_T_TOG;
       break;
     case 2:
       memcpy(ep2_buffer, data, len);
       UEP2_T_LEN = len;
       UEP2_CTRL = UEP2_CTRL & ~MASK_UEP_T_RES | UEP_T_RES_ACK;
+      UEP2_CTRL ^= bUEP_T_TOG;
       break;
     case 3:
       memcpy(ep3_buffer, data, len);
       UEP3_T_LEN = len;
       UEP3_CTRL = UEP3_CTRL & ~MASK_UEP_T_RES | UEP_T_RES_ACK;
+      UEP3_CTRL ^= bUEP_T_TOG;
       break;
   }
 }
@@ -148,15 +152,23 @@ void ep0_out(void) {
 
 void ep0_in(void) {
   struct SetupRequest* last_setup_req = &(__usb_device.last_setup_req);
-  switch (last_setup_req->bRequest) {
-    case SET_ADDRESS:
-      USB_DEV_AD = USB_DEV_AD & 0x80 | __usb_device.address;
-      UEP0_CTRL = UEP_R_RES_ACK | UEP_T_RES_NAK;
-      DEBUG("set address: %d\n", USB_DEV_AD);
-      break;
-    case GET_DESCRIPTOR:
-      ep0_send_next(last_setup_req->wLength);
-      break;
+  if ((last_setup_req->bRequestType & SETUP_REQUEST_TYPE_MASK) == SETUP_REQUEST_TYPE_STANDARD) {
+    switch (last_setup_req->bRequest) {
+      case SET_ADDRESS:
+        USB_DEV_AD = USB_DEV_AD & 0x80 | __usb_device.address;
+        UEP0_CTRL = UEP_R_RES_ACK | UEP_T_RES_NAK;
+        DEBUG("set address: %d\n", USB_DEV_AD);
+        break;
+      case GET_DESCRIPTOR:
+        ep0_send_next(last_setup_req->wLength);
+        break;
+      case SET_CONFIGURATION:
+        ep0_send_next(last_setup_req->wLength);
+        break;
+      default:
+        DEBUG("unknown standard request 0x%02X\n", last_setup_req->bRequest);
+        break;
+    }
   }
 }
 
@@ -177,8 +189,8 @@ void ep0_setup(void) {
       case GET_DESCRIPTOR:
         void* desc_ptr;
         uint16_t desc_len;
-        __usb_device.get_descriptor(last_setup_req, &desc_ptr, &desc_len);
-        if (desc_ptr == NULL && desc_len == 0) {
+        uint8_t is_error = __usb_device.get_descriptor(last_setup_req, &desc_ptr, &desc_len);
+        if (is_error) {
           usbd_stall();
           return;
         }
@@ -194,11 +206,18 @@ void ep0_setup(void) {
         ep0_send_first(NULL, 0, last_setup_req->wLength);
         DEBUG("set configuration %d\n", __usb_device.configuration_num);
         break;
+      default:
+        DEBUG("unknown standard request 0x%02X\n", last_setup_req->bRequest);
+        break;
     }
   } else {
     void* data_ptr;
     uint16_t data_len;
-    __usb_device.setup(last_setup_req, &data_ptr, &data_len);
+    uint8_t is_error = __usb_device.setup(last_setup_req, &data_ptr, &data_len);
+    if (is_error) {
+      usbd_stall();
+      return;
+    }
     ep0_send_first(data_ptr, data_len, last_setup_req->wLength);
   }
 }
@@ -206,8 +225,8 @@ void ep0_setup(void) {
 
 struct UsbDevice* usbd_init(
   uint8_t ep_flags,
-  void (*setup)(struct SetupRequest*, void**, uint8_t*),
-  void (*get_descriptor)(struct SetupRequest*, void**, uint8_t*)
+  uint8_t (*setup)(struct SetupRequest*, void**, uint16_t*),
+  uint8_t (*get_descriptor)(struct SetupRequest*, void**, uint16_t*)
 ) {
   IE_USB = 0;
   USB_CTRL = 0;

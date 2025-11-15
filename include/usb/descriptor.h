@@ -30,6 +30,7 @@
 
 #define HID_GET_REPORT    0x01
 #define HID_SET_IDLE      0x0A
+#define HID_SET_PROTOCOL  0x0B
 
 // SetupRequest.bRequestType
 #define SETUP_REQUEST_DIR_MASK      0b10000000
