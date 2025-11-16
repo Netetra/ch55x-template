@@ -1,5 +1,5 @@
 #define USE_UART0_STDIO
-#define ENABLE_DEBUG_LOG
+// #define ENABLE_DEBUG_LOG
 
 #include <stdio.h>
 #include <string.h>
@@ -64,7 +64,7 @@ __code struct Descriptors descriptors = {
     0x81,                     // bEndpointAddress: EP1 IN
     INTERRUPT_TRANSFER,       // bmAttributes
     3,                        // wMaxPacketSize
-    1                         // bInterval
+    10                         // bInterval
   }
 };
 
