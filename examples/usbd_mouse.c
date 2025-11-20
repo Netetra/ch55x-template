@@ -5,6 +5,7 @@
 #include <string.h>
 #include <math.h>
 #include <ch559.h>
+#include <usb/device.h>
 
 struct Descriptors {
   struct ConfigurationDesc configuration_desc;
@@ -211,7 +212,7 @@ uint8_t setup(struct SetupRequest* last_setup_req, void** ptr, uint16_t* len) {
 void main(void) {
   clock_init();
   uart0_init(115200, true);
-  uint8_t ep_flags = USE_EP1_IN;
+  uint8_t ep_flags = USBD_USE_EP1_IN;
   struct UsbDevice* device = usbd_init(ep_flags, setup, get_descriptor);
   EA = 1;
 

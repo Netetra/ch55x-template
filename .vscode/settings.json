@@ -5,6 +5,7 @@
         "config.h": "c",
         "math.h": "c",
         "stdlib.h": "c",
-        "cstdlib": "cpp"
+        "cstdlib": "cpp",
+        "ch559.h": "c"
     }
 }

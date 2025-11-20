@@ -1,18 +1,20 @@
 #pragma once
 
 #include <stdint.h>
+#include <string.h>
 #include "../register.h"
 #include "descriptor.h"
+#include "../util.h"
 
-#define USB_BUFFER_MAX_SIZE 64
+#define USBD_BUFFER_MAX_SIZE 64
 
 // UsbDevice.ep_flags
-#define USE_EP1_OUT 0b00000001
-#define USE_EP1_IN  0b00000010
-#define USE_EP2_OUT 0b00000100
-#define USE_EP2_IN  0b00001000
-#define USE_EP3_OUT 0b00010000
-#define USE_EP3_IN  0b00100000
+#define USBD_USE_EP1_OUT 0b00000001
+#define USBD_USE_EP1_IN  0b00000010
+#define USBD_USE_EP2_OUT 0b00000100
+#define USBD_USE_EP2_IN  0b00001000
+#define USBD_USE_EP3_OUT 0b00010000
+#define USBD_USE_EP3_IN  0b00100000
 
 struct UsbDevice {
   uint8_t ep_flags;
@@ -27,19 +29,19 @@ struct UsbDevice {
 
 struct UsbDevice __usb_device;
 
-uint8_t __ep0_buffer[USB_BUFFER_MAX_SIZE + 1];
+uint8_t __ep0_buffer[USBD_BUFFER_MAX_SIZE + 1];
 uint8_t* ep0_buffer = __ep0_buffer;
-uint8_t __ep1_buffer[USB_BUFFER_MAX_SIZE + 1];
+uint8_t __ep1_buffer[USBD_BUFFER_MAX_SIZE + 1];
 uint8_t* ep1_buffer = __ep1_buffer;
-uint8_t __ep2_buffer[USB_BUFFER_MAX_SIZE + 1];
+uint8_t __ep2_buffer[USBD_BUFFER_MAX_SIZE + 1];
 uint8_t* ep2_buffer = __ep2_buffer;
-uint8_t __ep3_buffer[USB_BUFFER_MAX_SIZE + 1];
+uint8_t __ep3_buffer[USBD_BUFFER_MAX_SIZE + 1];
 uint8_t* ep3_buffer = __ep3_buffer;
 
 void usbd_bus_reset(void) {
-  uint8_t use_ep1 = __usb_device.ep_flags & (USE_EP1_OUT | USE_EP1_IN);
-  uint8_t use_ep2 = __usb_device.ep_flags & (USE_EP2_OUT | USE_EP2_IN);
-  uint8_t use_ep3 = __usb_device.ep_flags & (USE_EP3_OUT | USE_EP3_IN);
+  uint8_t use_ep1 = __usb_device.ep_flags & (USBD_USE_EP1_OUT | USBD_USE_EP1_IN);
+  uint8_t use_ep2 = __usb_device.ep_flags & (USBD_USE_EP2_OUT | USBD_USE_EP2_IN);
+  uint8_t use_ep3 = __usb_device.ep_flags & (USBD_USE_EP3_OUT | USBD_USE_EP3_IN);
 
   UEP0_CTRL = UEP_R_RES_ACK | UEP_T_RES_NAK;
   if (use_ep1) {
@@ -90,7 +92,7 @@ void ep_data_send(uint8_t ep_num, uint8_t* data, uint8_t len) {
 }
 
 void ep0_send_first(void* ptr, uint16_t len, uint16_t max_len) {
-  uint8_t tx_len = (len <= USB_BUFFER_MAX_SIZE) ? len : USB_BUFFER_MAX_SIZE;
+  uint8_t tx_len = (len <= USBD_BUFFER_MAX_SIZE) ? len : USBD_BUFFER_MAX_SIZE;
   tx_len = (tx_len <= max_len) ? tx_len : max_len;
   memcpy(ep0_buffer, ptr, tx_len);
   UEP0_T_LEN = tx_len;
@@ -102,7 +104,7 @@ void ep0_send_first(void* ptr, uint16_t len, uint16_t max_len) {
 void ep0_send_next(uint16_t max_len) {
   void* ptr = __usb_device.ep0_sending_data_ptr;
   uint16_t len = __usb_device.ep0_sending_data_len;
-  uint8_t tx_len = (len <= USB_BUFFER_MAX_SIZE) ? len : USB_BUFFER_MAX_SIZE;
+  uint8_t tx_len = (len <= USBD_BUFFER_MAX_SIZE) ? len : USBD_BUFFER_MAX_SIZE;
   tx_len = (tx_len <= max_len) ? tx_len : max_len;
   memcpy(ep0_buffer, ptr, tx_len);
   UEP0_T_LEN = tx_len;
@@ -235,12 +237,12 @@ struct UsbDevice* usbd_init(
   __usb_device.setup = setup;
   __usb_device.get_descriptor = get_descriptor;
 
-  uint8_t use_ep1_out = __usb_device.ep_flags & USE_EP1_OUT;
-  uint8_t use_ep1_in = __usb_device.ep_flags & USE_EP1_IN;
-  uint8_t use_ep2_out = __usb_device.ep_flags & USE_EP2_OUT;
-  uint8_t use_ep2_in = __usb_device.ep_flags & USE_EP2_IN;
-  uint8_t use_ep3_out = __usb_device.ep_flags & USE_EP3_OUT;
-  uint8_t use_ep3_in = __usb_device.ep_flags & USE_EP3_IN;
+  uint8_t use_ep1_out = __usb_device.ep_flags & USBD_USE_EP1_OUT;
+  uint8_t use_ep1_in = __usb_device.ep_flags & USBD_USE_EP1_IN;
+  uint8_t use_ep2_out = __usb_device.ep_flags & USBD_USE_EP2_OUT;
+  uint8_t use_ep2_in = __usb_device.ep_flags & USBD_USE_EP2_IN;
+  uint8_t use_ep3_out = __usb_device.ep_flags & USBD_USE_EP3_OUT;
+  uint8_t use_ep3_in = __usb_device.ep_flags & USBD_USE_EP3_IN;
 
   // 16bit alignment
   if ((uint16_t)ep0_buffer & 1) { ep0_buffer++; }
@@ -301,7 +303,7 @@ struct UsbDevice* usbd_init(
   return &__usb_device;
 }
 
-void usb_interrupt(void) __interrupt(8) __using(1) {
+void usbd_interrupt(void) __interrupt(8) __using(1) {
   if (UIF_TRANSFER) {
     if (U_IS_NAK) { return; }
     uint8_t interrupt_status = USB_INT_ST;

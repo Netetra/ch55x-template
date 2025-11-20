@@ -5,10 +5,11 @@
 // NOTE: MCS51 not supported SFR16E macro
 
 // USB_INT_ST
-#define TOKEN_OUT   0b00000000
-#define TOKEN_SOF   0b00010000
-#define TOKEN_IN    0b00100000
-#define TOKEN_SETUP 0b00110000
+#define TOKEN_OUT      0b00000000
+#define TOKEN_SOF      0b00010000
+#define TOKEN_IN       0b00100000
+#define TOKEN_SETUP    0b00110000
+#define MASK_UIS_H_RES 0b00001111
 
 // UEPn_CTRL
 #define bUEP_R_TOG 0b10000000
@@ -67,6 +68,46 @@
 #define bUC_RESET_SIE 0b00000100
 #define bUC_CLR_ALL   0b00000010
 #define bUC_DMA_EN    0b00000001
+
+// UH_EP_MOD
+#define bUH_EP_TX_EN    0b01000000
+#define bUH_EP_TBUF_MOD 0b00010000
+#define bUH_EP_RX_EN    0b00001000
+#define bUH_EP_RBUF_MOD 0b00000001
+
+// UH_SETUP
+#define bUH_PRE_PID_EN 0b10000000
+#define bUH_SOF_EN     0b01000000
+
+// UHUBn_CTRL
+#define bUH1_DISABLE   0b10000000
+#define bUH_RECV_DIS   0b01000000
+#define bUH_DP_PD_DIS  0b00100000
+#define bUH_DM_PD_DIS  0b00010000
+#define bUH_DIFF_IN    0b00001000
+#define bUH_LOW_SPEED  0b00000100
+#define bUH_BUS_RESET  0b00000010
+#define bUH_PORT_EN    0b00000001
+
+// USB_HUB_ST
+#define bUHS_H1_ATTACH 0b10000000
+#define bUHS_HM_LEVEL  0b01000000
+#define bUHS_HP_PIN    0b00100000
+#define bUHS_HM_PIN    0b00010000
+#define bUHS_H0_ATTACH 0b00001000
+#define bUHS_DM_LEVEL  0b00000100
+#define bUHS_DP_PIN    0b00000010
+#define bUHS_DM_PIN    0b00000001
+
+// UH_TX_CTRL
+#define bUH_T_TOG      0b01000000
+#define bUH_T_AUTO_TOG 0b00010000
+#define bUH_T_RES	   0b00000001
+
+// UH_RX_CTRL
+#define bUH_R_TOG      0b10000000
+#define bUH_R_AUTO_TOG 0b00010000
+#define bUH_R_RES      0b00000100
 
 // --- System registers ---
 SFR(B, 0xF0);
@@ -267,6 +308,7 @@ SFR(UEP2_CTRL,  0xD4);
 SFR(UH_RX_CTRL, 0xD4);
 SFR(UEP1_T_LEN, 0xD3);
 SFR(UEP1_CTRL,  0xD2);
+SFR(UH_SETUP,   0xD2);
 SFR(USB_RX_LEN, 0xD1);
 
 SFRX(UEP4_1_MOD, 0x2446);

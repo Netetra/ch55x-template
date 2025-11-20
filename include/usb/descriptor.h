@@ -2,6 +2,17 @@
 
 #include <stdint.h>
 
+// PID
+#define PACKET_ID_OUT   0x01
+#define PACKET_ID_ACK   0x02
+#define PACKET_ID_IN    0x09
+#define PACKET_ID_SETUP 0x0D
+#define PACKET_ID_SOF   0x05
+#define PACKET_ID_NAK   0x0A
+#define PACKET_ID_STALL 0x0E
+#define PACKET_ID_DATA0 0x03
+#define PACKET_ID_DATA1 0x0B
+
 // bDescriptorType
 #define DEVICE_DESCRIPTOR        0x01
 #define CONFIGURATION_DESCRIPTOR 0x02
@@ -40,6 +51,10 @@
 #define SETUP_REQUEST_TYPE_STANDARD 0b00000000
 #define SETUP_REQUEST_TYPE_CLASS    0b00100000
 #define SETUP_REQUEST_TYPE_VENDOR   0b01000000
+#define REQUEST_TARGET_DEVICE       0x00
+#define REQUEST_TARGET_INTERFACE    0x01
+#define REQUEST_TARGET_ENDPOINT     0x02
+#define REQUEST_TARGET_OTHER        0x03
 
 struct SetupRequest {
   uint8_t bRequestType;
