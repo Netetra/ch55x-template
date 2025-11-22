@@ -29,6 +29,9 @@ struct Hub {
 
 struct UsbHost {
   uint8_t flags;
+  uint8_t (*connected_handler)(uint8_t hub, struct DeviceDesc* device_desc);
+  void (*disconnected_handler)(uint8_t hub);
+  void (*poll_handler)(uint8_t hub);
   struct Hub hub[2];
 };
 
@@ -80,6 +83,7 @@ void usbh_check_attach(uint8_t hub) {
 void usbh_check_detach(uint8_t hub) {
   if (__usb_host.hub[hub].status != DEVICE_DISCONNECT && !usbh_is_attach(hub)) {
     __usb_host.hub[hub].status = DEVICE_DISCONNECT;
+    __usb_host.disconnected_handler(hub);
     DEBUG("hub%d: device disconnected\n", hub);
   }
 }
@@ -221,7 +225,6 @@ uint8_t usbh_transfer_control(
 	UH_TX_LEN = sizeof(struct SetupRequest);
 	error = usbh_transfer((uint8_t)(PACKET_ID_SETUP << 4), 0, 10000);
 	if (error) { return true; }
-  DEBUG("setuped\n");
 	UH_RX_CTRL = UH_TX_CTRL = bUH_R_TOG | bUH_R_AUTO_TOG | bUH_T_TOG | bUH_T_AUTO_TOG;
 	UH_TX_LEN = 0x01;
 	uint16_t remaining = setup_req->wLength;
@@ -283,8 +286,9 @@ void usbh_device_init(uint8_t hub) {
     error = usbh_transfer_control(hub, &device_desc_req, transfer_buffer, &len, USBH_TRANSFER_BUFFER_SIZE);
     if (error) { continue; }
     if (len != sizeof(struct DeviceDesc)) { continue; }
-    struct DeviceDesc* device_desc = (struct DeviceDesc*)transfer_buffer;
-    DEBUG("hub%d: VID 0x%04X , PID 0x%04X\n", hub, device_desc->idVendor, device_desc->idProduct);
+    struct DeviceDesc device_desc;
+    memcpy(&device_desc, transfer_buffer, sizeof(struct DeviceDesc));
+    DEBUG("hub%d: VID 0x%04X , PID 0x%04X\n", hub, device_desc.idVendor, device_desc.idProduct);
 
     uint8_t address = hub + 1;
     set_address_req.wValue = address;
@@ -292,6 +296,9 @@ void usbh_device_init(uint8_t hub) {
     if (error) { continue; }
     __usb_host.hub[hub].address = address;
     DEBUG("hub%d: address 0x%02X\n", hub, address);
+
+    error = __usb_host.connected_handler(hub, &device_desc);
+    if (error) { continue; }
 
     __usb_host.hub[hub].status = DEVICE_READY;
     DEBUG("hub%d: device initialized\n", hub);
@@ -314,14 +321,24 @@ void usbh_poll(uint8_t hub) {
       usbh_device_init(hub);
       break;
     case DEVICE_READY:
+      __usb_host.poll_handler(hub);
+      break;
     case DEVICE_ERROR:
       // nop
       break;
   }
 }
 
-struct UsbHost* usbh_init(uint8_t flags) {
+struct UsbHost* usbh_init(
+  uint8_t flags,
+  uint8_t (*connected_handler)(uint8_t hub, struct DeviceDesc* device_desc),
+  void (*disconnected_handler)(uint8_t hub),
+  void (*poll_handler)(uint8_t hub)
+) {
   __usb_host.flags = flags;
+  __usb_host.connected_handler = connected_handler;
+  __usb_host.disconnected_handler = disconnected_handler;
+  __usb_host.poll_handler = poll_handler;
   for (uint8_t i = 0; i < 2; i++) {
     __usb_host.hub[i].address = 0;
     __usb_host.hub[i].status = DEVICE_DISCONNECT;
@@ -346,12 +363,19 @@ struct UsbHost* usbh_init(uint8_t flags) {
 	UH_SETUP = bUH_SOF_EN;
 	USB_INT_FG = 0xFF;
   if (__usb_host.flags & USBH_USE_HUB0) {
+    UHUB1_CTRL = bUH_RECV_DIS | bUH_DP_PD_DIS | bUH_DM_PD_DIS;
     usbh_disable_port(0);
+    usbh_poll(0);
+    usbh_poll(0);
+    usbh_poll(0);
   } else {
     UHUB0_CTRL = bUH_RECV_DIS | bUH_DP_PD_DIS | bUH_DM_PD_DIS;
   }
   if (__usb_host.flags & USBH_USE_HUB1) {
     usbh_disable_port(1);
+    usbh_poll(1);
+    usbh_poll(1);
+    usbh_poll(1);
   } else {
     UHUB1_CTRL = bUH_RECV_DIS | bUH_DP_PD_DIS | bUH_DM_PD_DIS;
   }
