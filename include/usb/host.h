@@ -13,6 +13,8 @@
 #define USBH_USE_HUB0 0b00000001
 #define USBH_USE_HUB1 0b00000010
 
+#define AUTO_TOGGLE (bUH_R_TOG | bUH_R_AUTO_TOG | bUH_T_TOG | bUH_T_AUTO_TOG)
+
 enum HubStatus {
   DEVICE_DISCONNECT, /* 接続されてない */
   DEVICE_CONNECTED,  /* 接続されてる(未設定) */
@@ -80,14 +82,6 @@ void usbh_check_attach(uint8_t hub) {
   }
 }
 
-void usbh_check_detach(uint8_t hub) {
-  if (__usb_host.hub[hub].status != DEVICE_DISCONNECT && !usbh_is_attach(hub)) {
-    __usb_host.hub[hub].status = DEVICE_DISCONNECT;
-    __usb_host.disconnected_handler(hub);
-    DEBUG("hub%d: device disconnected\n", hub);
-  }
-}
-
 void usbh_disable_port(uint8_t hub) {
   __usb_host.hub[hub].status = DEVICE_DISCONNECT;
   __usb_host.hub[hub].address = 0;
@@ -99,8 +93,17 @@ void usbh_disable_port(uint8_t hub) {
   DEBUG("hub%d: port disabled\n", hub);
 }
 
+void usbh_check_detach(uint8_t hub) {
+  if (__usb_host.hub[hub].status != DEVICE_DISCONNECT && !usbh_is_attach(hub)) {
+    __usb_host.hub[hub].status = DEVICE_DISCONNECT;
+    usbh_disable_port(hub);
+    __usb_host.disconnected_handler(hub);
+    DEBUG("hub%d: device disconnected\n", hub);
+  }
+}
+
 inline void usbh_select_device(uint8_t address) {
-  USB_DEV_AD = (USB_DEV_AD & bUD_GP_BIT) | (address & 0x7F);
+  USB_DEV_AD = (USB_DEV_AD & bUDA_GP_BIT) | (address & 0x7F);
 }
 
 void usbh_set_speed(uint8_t is_full_speed) {
@@ -295,7 +298,8 @@ void usbh_device_init(uint8_t hub) {
     error = usbh_transfer_control(hub, &set_address_req, 0, 0, 0);
     if (error) { continue; }
     __usb_host.hub[hub].address = address;
-    DEBUG("hub%d: address 0x%02X\n", hub, address);
+    DEBUG("hub%d: address 0x%02X\n", hub, __usb_host.hub[hub].address);
+    delay_ms(100);
 
     error = __usb_host.connected_handler(hub, &device_desc);
     if (error) { continue; }
@@ -305,6 +309,7 @@ void usbh_device_init(uint8_t hub) {
     return;
   }
   __usb_host.hub[hub].status = DEVICE_ERROR;
+  usbh_set_speed(true);
   DEBUG("hub%d: device could not initialized\n", hub);
 }
 

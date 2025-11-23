@@ -4,6 +4,9 @@
 
 // NOTE: MCS51 not supported SFR16E macro
 
+// USB_DEV_AD
+#define bUDA_GP_BIT 0b10000000
+
 // USB_INT_ST
 #define TOKEN_OUT      0b00000000
 #define TOKEN_SOF      0b00010000
