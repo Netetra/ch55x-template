@@ -5,8 +5,6 @@
 #include <ch559.h>
 #include <usb/host.h>
 
-#define EP_NUM 2
-
 __code struct SetupRequest set_configuration_req = {
   .bRequestType = SETUP_REQUEST_DIR_OUT,
   .bRequest = SET_CONFIGURATION,
@@ -14,6 +12,8 @@ __code struct SetupRequest set_configuration_req = {
   .wIndex = 0,
   .wLength = 0
 };
+
+uint8_t buffer[64];
 
 uint8_t connected_handler(uint8_t hub, struct DeviceDesc* device_desc) {
   uint8_t error = usbh_transfer_control(hub, &set_configuration_req, 0, 0, 0);
@@ -25,13 +25,12 @@ uint8_t connected_handler(uint8_t hub, struct DeviceDesc* device_desc) {
 void disconnected_handler(uint8_t hub) {}
 
 void poll_handler(uint8_t hub) {
-  uint8_t ep_pid = (PACKET_ID_IN << 4) | EP_NUM;
-  usbh_select_port(hub);
-  uint8_t error = usbh_transfer(ep_pid, AUTO_TOGGLE, 1);
+  uint16_t len;
+  uint8_t error = usbh_transfer_in(hub, 2, buffer, &len, 1);
   if (error) { return; }
   printf("hub%d: ", hub);
-  for (uint8_t i = 0; i < USB_RX_LEN; i++) {
-    printf("0x%02X  ", rx_buffer[i]);
+  for (uint8_t i = 0; i < len; i++) {
+    printf("0x%02X  ", buffer[i]);
   }
   printf("\n");
 }

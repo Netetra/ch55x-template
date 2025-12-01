@@ -267,6 +267,23 @@ uint8_t usbh_transfer_control(
 	return true;
 }
 
+uint8_t usbh_transfer_in(
+  uint8_t hub,
+  uint8_t ep,
+  uint8_t* buffer,
+  uint16_t* len,
+  uint16_t timeout
+) {
+  uint8_t ep_pid = (PACKET_ID_IN << 4) | ep;
+  usbh_select_port(hub);
+  UH_TX_LEN = 0;
+  uint8_t error = usbh_transfer(ep_pid, AUTO_TOGGLE, timeout);
+  if (error) { return true; }
+  *len = USB_RX_LEN;
+  memcpy(buffer, rx_buffer, USB_RX_LEN);
+  return false;
+}
+
 void usbh_device_init(uint8_t hub) {
   uint8_t error;
   uint8_t i;
